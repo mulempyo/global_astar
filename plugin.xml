@@ -1,0 +1,5 @@
+<library path="lib/libkwj_global_planner">
+ <class name="kwj/KwjROS" type="kwj::KwjROS" base_class_type="nav_core::BaseGlobalPlanner">
+   <description>my own A* global planner plugin</description>
+ </class>
+</library>
