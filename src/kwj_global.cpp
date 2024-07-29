@@ -7,19 +7,13 @@ float infinity = std::numeric_limits<float>::infinity();
 namespace kwj
 {
 
-  Kwj::Kwj()
+  Kwj::Kwj(int w, int h)
   {
-  width = costmap_->getSizeInCellsX();
-  mapSize = width * costmap_->getSizeInCellsY();
-  }
-  Kwj::~Kwj(){
-    if(occupancyGridMap)
-     {delete[] occupancyGridMap;}
-      occupancyGridMap = nullptr;
-
-    if(costmap_)
-     {delete[] costmap_;}
-      costmap_ = nullptr;
+  ROS_WARN("construct Kwj");
+  width = w;
+  height = h;
+  mapSize = w * h;
+  ROS_WARN("construct Kwj2");
   }
 
 
@@ -342,6 +336,17 @@ bool Kwj::isFree(int gridSquareIndex)
 {
   return occupancyGridMap[gridSquareIndex];
 }
+ 
+ Kwj::~Kwj(){
+  ROS_WARN("delete Kwj");
+    if(occupancyGridMap)
+     {delete[] occupancyGridMap;}
+      occupancyGridMap = nullptr;
+
+    if(costmap_)
+     {delete[] costmap_;}
+      costmap_ = nullptr;
+  }
 
 };
 bool operator<(cell const &c1, cell const &c2) { return c1.fCost < c2.fCost; }

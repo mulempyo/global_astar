@@ -21,39 +21,34 @@ struct cell
 
 namespace kwj
 {
-
 class Kwj
 {
 public:
   int mapSize = 0;
   int value = 0;
-  bool *occupancyGridMap = nullptr;
-  float tBreak = 0;
+  bool *occupancyGridMap;
   ros::NodeHandle nh;
   float resolution;
-  costmap_2d::Costmap2DROS *costmap_ros_;
   costmap_2d::Costmap2D *costmap_;
   bool initialized_;
   int width;
-  int start[2];
-  int goal[2];
+  int height;
  
-  Kwj();
+  Kwj(int w, int h);
   ~Kwj();
   /** Helper methods**/
-  void setGoal(int *g);
-  void setStart(int *g);
   vector<int> runAStarOnGrid(int startGridSquare, int goalGridSquare);
   vector<int> findPath(int startGridSquare, int goalGridSquare, float g_score[]);
   vector<int> constructPath(int startGridSquare, int goalGridSquare, float g_score[]);
   void addNeighborGridSquareToOpenList(multiset<cell> &OPL, int neighborGridSquare, int goalGridSquare, float g_score[]);
   vector<int> findFreeNeighborGridSquare(int gridSquareIndex);
-  bool isStartAndGoalValid(int startGridSquare, int goalGridSquare);
+  bool isStartAndGoalValid(int startGridSquare, int goalGridSquare, double tolerance);
   float getMoveCost(int gridSquareIndex1, int gridSquareIndex2);
   float getMoveCost(int i1, int j1, int i2, int j2);
   float calculateHScore(int gridSquareIndex, int goalGridSquare);
 
   int calculateGridSquareIndex(float i, float j);
+  int calculateGridSquareIndex(unsigned int i, unsigned int j);
  
   int getGridSquareRowIndex(int index);
   

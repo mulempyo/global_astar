@@ -19,19 +19,20 @@ class KwjWithCostmap : public KwjROS
 {
 public:
   KwjWithCostmap(string name, Costmap2DROS* cmap);
-  ~KwjWithCostmap();
 
 private:
   void poseCallback(const rm::PoseStamped::ConstPtr& goal);
-  Costmap2DROS* cmap_ = nullptr;
+  Costmap2DROS* cmap_;
   ros::Subscriber pose_sub_;
 };
 
 
 void KwjWithCostmap::poseCallback(const rm::PoseStamped::ConstPtr& goal) {
+  ROS_WARN("subscribe goal topic");
   geometry_msgs::PoseStamped global_pose;
   cmap_->getRobotPose(global_pose);
   vector<PoseStamped> path;
+  ROS_WARN("start makePlan");
   makePlan(global_pose, *goal, path);
 }
 
@@ -39,19 +40,14 @@ void KwjWithCostmap::poseCallback(const rm::PoseStamped::ConstPtr& goal) {
 KwjWithCostmap::KwjWithCostmap(string name, Costmap2DROS* cmap) : 
   KwjROS(name, cmap)
 {
+  ROS_WARN("construct KwjWithCostmap");
   ros::NodeHandle private_nh("~");
   cmap_ = cmap;
   pose_sub_ = private_nh.subscribe<rm::PoseStamped>("goal", 1, &KwjWithCostmap::poseCallback, this);
 }
 
-KwjWithCostmap::~KwjWithCostmap()
-{
-   if(cmap_)
-    {delete[] cmap_;}
-    cmap_ = nullptr;
-}
 
-} // namespace
+}; // namespace
 
 int main (int argc, char** argv)
 {
