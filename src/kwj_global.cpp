@@ -7,25 +7,14 @@ float infinity = std::numeric_limits<float>::infinity();
 namespace kwj
 {
 
-  Kwj::Kwj()
+  Kwj::Kwj(int w, int h)
   {
-  width = costmap_->getSizeInCellsX();
-  goal[0] = goal[1] = 0;
-  start[0] = start[1] = 0;
+  ROS_WARN("construct Kwj");
+  width = w;
+  height = h;
+  mapSize = w * h;
+  ROS_WARN("construct Kwj2");
   }
-  Kwj::~Kwj(){}
-
-  void Kwj::setGoal(int *g)
-    {
-      goal[0] = g[0];
-      goal[1] = g[1];
-    }
-
-  void Kwj::setStart(int *g)
-    {
-      start[0] = g[0];
-      start[1] = g[1];
-    }
 
 
 vector<int> Kwj::runAStarOnGrid(int startGridSquare, int goalGridSquare)
@@ -40,7 +29,13 @@ vector<int> Kwj::runAStarOnGrid(int startGridSquare, int goalGridSquare)
 
   bestPath = findPath(startGridSquare, goalGridSquare, g_score);
 
-  return bestPath;
+  if (mapSize <= 0) {
+    ROS_WARN("map size error");
+    }
+  else{  
+    return bestPath;
+  }
+  
 }
 
 /**
@@ -175,11 +170,12 @@ vector<int> Kwj::findFreeNeighborGridSquare(int gridSquare)
 /**
   Checks if start and goal positions are valid and not unreachable.
 **/
-bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare)
+bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare, double tolerance)
 {
   bool isvalid = true;
+  double goalGridSquareTolerance = goalGridSquare + tolerance;
   bool isFreeStartGridSquare = isFree(startGridSquare);
-  bool isFreeGoalGridSquare = isFree(goalGridSquare);
+  bool isFreeGoalGridSquare = isFree(goalGridSquareTolerance);
   if (startGridSquare == goalGridSquare)
   {
 
@@ -286,6 +282,11 @@ int Kwj::calculateGridSquareIndex(float i, float j)
   return (i * costmap_->getSizeInCellsX()) + j;
 }
 
+int Kwj::calculateGridSquareIndex(unsigned int i, unsigned int j) 
+{
+  return (i * costmap_->getSizeInCellsX()) + j;
+}
+
 /**
 
   Calculates gridSquare row from square index
@@ -335,6 +336,17 @@ bool Kwj::isFree(int gridSquareIndex)
 {
   return occupancyGridMap[gridSquareIndex];
 }
+ 
+ Kwj::~Kwj(){
+  ROS_WARN("delete Kwj");
+    if(occupancyGridMap)
+     {delete[] occupancyGridMap;}
+      occupancyGridMap = nullptr;
+
+    if(costmap_)
+     {delete[] costmap_;}
+      costmap_ = nullptr;
+  }
 
 };
 bool operator<(cell const &c1, cell const &c2) { return c1.fCost < c2.fCost; }

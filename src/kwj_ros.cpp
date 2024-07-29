@@ -15,20 +15,17 @@ namespace kwj {
 
   KwjROS::KwjROS(std::string name, costmap_2d::Costmap2DROS* costmap_ros)
     : costmap_(NULL),  planner_(), initialized_(false), allow_unknown_(true) {
-      //initialize the planner
+  
+      ROS_WARN("construct KwjROS");
       initialize(name, costmap_ros);
   }
-
-  KwjROS::~KwjROS()
-  {
-    if(occupancyGridMap)
-      delete[] occupancyGridMap;
-  }
+  
   void KwjROS::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_ros){
     if (!initialized_)
   {
-    costmap_ros_ = costmap_ros;
-    costmap_ = costmap_ros_->getCostmap();
+    ROS_WARN("start initialize");
+    costmap_ = costmap_ros->getCostmap();
+    global_frame_ = costmap_ros->getGlobalFrameID();
 
     ros::NodeHandle private_nh("~/" + name);
     plan_pub_ = private_nh.advertise<nav_msgs::Path>("plan", 1);
@@ -37,9 +34,9 @@ namespace kwj {
 
     width = costmap_->getSizeInCellsX();
     height = costmap_->getSizeInCellsY();
+    planner_ = boost::shared_ptr<Kwj>(new Kwj(costmap_->getSizeInCellsX(), costmap_->getSizeInCellsY()));
     resolution = costmap_->getResolution();
     mapSize = width * height;
-    tBreak = 1 + 1 / (mapSize);
     value = 0;
 
     occupancyGridMap = new bool[mapSize];
@@ -70,6 +67,7 @@ namespace kwj {
 
   bool KwjROS::makePlan(const geometry_msgs::PoseStamped& start, 
       const geometry_msgs::PoseStamped& goal, std::vector<geometry_msgs::PoseStamped>& plan){
+        ROS_WARN("kwj_ros.cpp makePlan start");
         makePlan(start, goal, default_tolerance_, plan);
       }
   
@@ -86,29 +84,53 @@ namespace kwj {
 
   plan.clear();
 
-  if (goal.header.frame_id != costmap_ros_->getGlobalFrameID())
+  if (goal.header.frame_id != global_frame_)
   {
     ROS_ERROR("This planner as configured will only accept goals in the %s frame, but a goal was sent in the %s frame.",
-              costmap_ros_->getGlobalFrameID().c_str(), goal.header.frame_id.c_str());
+              global_frame_.c_str(), goal.header.frame_id.c_str());
     return false;
   }
-  
-    float startX = start.pose.position.x;
-    float startY = start.pose.position.y;
-    float goalX = goal.pose.position.x;
-    float goalY = goal.pose.position.y;
+  ROS_WARN("makePlan execute now");
+double wx = start.pose.position.x;
+double wy = start.pose.position.y;
 
-    int start_index = planner_->calculateGridSquareIndex(startX, startY);
-    int goal_index = planner_->calculateGridSquareIndex(goalX, goalY);
+unsigned int mx, my;
+if (!costmap_->worldToMap(wx, wy, mx, my)) {
+    ROS_WARN_THROTTLE(1.0, "The robot's start position is off the global costmap. Planning will always fail, are you sure the robot has been properly localized?");
+    return false;
+}
 
-  if (!planner_->isStartAndGoalValid(start_index, goal_index)) {
+// clear the starting cell within the costmap because we know it can't be an obstacle
+clearRobotCell(start, mx, my);
+
+int map_start[2];
+map_start[0] = mx;
+map_start[1] = my;
+
+int start_index = planner_->calculateGridSquareIndex(mx, my);
+
+wx = goal.pose.position.x;
+wy = goal.pose.position.y;
+
+if (!costmap_->worldToMap(wx, wy, mx, my)) {
+    if (tolerance <= 0.0) {
+        ROS_WARN_THROTTLE(1.0, "The goal sent to the kwj planner is off the global costmap. Planning will always fail to this goal.");
+        return false;
+    }
+    mx = 0;
+    my = 0;
+}
+
+int map_goal[2];
+map_goal[0] = mx;
+map_goal[1] = my;
+
+int goal_index = planner_->calculateGridSquareIndex(mx, my); 
+
+
+  if (!planner_->isStartAndGoalValid(start_index, goal_index, tolerance)) {
     ROS_WARN("Invalid start or goal");
-    return 0;
-  }
-
-  unsigned int mx, my;
-  costmap_->worldToMap(start.pose.position.x, start.pose.position.y, mx, my);
-  clearRobotCell(start, mx, my);
+   }
 
   std::vector<int> bestPath = planner_->runAStarOnGrid(start_index, goal_index);
 
@@ -138,7 +160,8 @@ namespace kwj {
   } else {
     ROS_WARN("No path found");
     return 0;
-  }   
+  }
+  ROS_WARN("makePlan end");
   publishPlan(plan);
   }
   
@@ -151,7 +174,7 @@ namespace kwj {
     //create a message for the plan 
     nav_msgs::Path gui_path;
 
-    gui_path.header.frame_id = "map";
+    gui_path.header.frame_id = global_frame_;
     gui_path.header.stamp = ros::Time::now();
     gui_path.poses.resize(path.size());
     
@@ -172,5 +195,20 @@ namespace kwj {
 
     //set the associated costs in the cost map to be free
     costmap_->setCost(mx, my, costmap_2d::FREE_SPACE);
+  }
+
+  KwjROS::~KwjROS(){
+    ROS_WARN("delete KwjROS");
+    if(occupancyGridMap){
+     delete[] occupancyGridMap;}
+     occupancyGridMap = nullptr;
+ 
+    if(costmap_){
+     delete[] costmap_;}
+     costmap_ = nullptr;
+    
+    if(costmap_ros_){
+     delete[] costmap_ros_;}
+     costmap_ros_ = nullptr;
   }
 };

@@ -22,8 +22,7 @@ namespace kwj {
       float resolution;
       int mapSize = 0;
       int value = 0;
-      bool *occupancyGridMap = nullptr;
-      float tBreak = 0;
+      bool *occupancyGridMap;
 
       KwjROS();
       KwjROS(std::string name, costmap_2d::Costmap2DROS* costmap_ros);
@@ -42,8 +41,8 @@ namespace kwj {
 
 
     protected:
-      costmap_2d::Costmap2D* costmap_;
-      costmap_2d::Costmap2DROS *costmap_ros_;
+      costmap_2d::Costmap2D* costmap_ ;
+      costmap_2d::Costmap2DROS* costmap_ros_;
       boost::shared_ptr<Kwj> planner_;
       ros::Publisher plan_pub_;
       bool initialized_,allow_unknown_;
