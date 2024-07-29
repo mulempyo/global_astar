@@ -1,3 +1,4 @@
+#include <kwj_global_planner/kwj_global.h>
 #include <kwj_global_planner/kwj_ros.h>
 #include <boost/shared_ptr.hpp>
 #include <costmap_2d/costmap_2d_ros.h>
@@ -18,10 +19,11 @@ class KwjWithCostmap : public KwjROS
 {
 public:
   KwjWithCostmap(string name, Costmap2DROS* cmap);
+  ~KwjWithCostmap();
 
 private:
   void poseCallback(const rm::PoseStamped::ConstPtr& goal);
-  Costmap2DROS* cmap_;
+  Costmap2DROS* cmap_ = nullptr;
   ros::Subscriber pose_sub_;
 };
 
@@ -40,6 +42,13 @@ KwjWithCostmap::KwjWithCostmap(string name, Costmap2DROS* cmap) :
   ros::NodeHandle private_nh("~");
   cmap_ = cmap;
   pose_sub_ = private_nh.subscribe<rm::PoseStamped>("goal", 1, &KwjWithCostmap::poseCallback, this);
+}
+
+KwjWithCostmap::~KwjWithCostmap()
+{
+   if(cmap_)
+    {delete[] cmap_;}
+    cmap_ = nullptr;
 }
 
 } // namespace

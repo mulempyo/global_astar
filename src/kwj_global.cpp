@@ -10,22 +10,17 @@ namespace kwj
   Kwj::Kwj()
   {
   width = costmap_->getSizeInCellsX();
-  goal[0] = goal[1] = 0;
-  start[0] = start[1] = 0;
+  mapSize = width * costmap_->getSizeInCellsY();
   }
-  Kwj::~Kwj(){}
+  Kwj::~Kwj(){
+    if(occupancyGridMap)
+     {delete[] occupancyGridMap;}
+      occupancyGridMap = nullptr;
 
-  void Kwj::setGoal(int *g)
-    {
-      goal[0] = g[0];
-      goal[1] = g[1];
-    }
-
-  void Kwj::setStart(int *g)
-    {
-      start[0] = g[0];
-      start[1] = g[1];
-    }
+    if(costmap_)
+     {delete[] costmap_;}
+      costmap_ = nullptr;
+  }
 
 
 vector<int> Kwj::runAStarOnGrid(int startGridSquare, int goalGridSquare)
@@ -40,7 +35,13 @@ vector<int> Kwj::runAStarOnGrid(int startGridSquare, int goalGridSquare)
 
   bestPath = findPath(startGridSquare, goalGridSquare, g_score);
 
-  return bestPath;
+  if (mapSize <= 0) {
+    ROS_WARN("map size error");
+    }
+  else{  
+    return bestPath;
+  }
+  
 }
 
 /**
@@ -175,11 +176,12 @@ vector<int> Kwj::findFreeNeighborGridSquare(int gridSquare)
 /**
   Checks if start and goal positions are valid and not unreachable.
 **/
-bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare)
+bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare, double tolerance)
 {
   bool isvalid = true;
+  double goalGridSquareTolerance = goalGridSquare + tolerance;
   bool isFreeStartGridSquare = isFree(startGridSquare);
-  bool isFreeGoalGridSquare = isFree(goalGridSquare);
+  bool isFreeGoalGridSquare = isFree(goalGridSquareTolerance);
   if (startGridSquare == goalGridSquare)
   {
 
@@ -282,6 +284,11 @@ float Kwj::calculateHScore(int gridSquareIndex, int goalGridSquare)
   Calculates the gridSquare index from square coordinates
 **/
 int Kwj::calculateGridSquareIndex(float i, float j) 
+{
+  return (i * costmap_->getSizeInCellsX()) + j;
+}
+
+int Kwj::calculateGridSquareIndex(unsigned int i, unsigned int j) 
 {
   return (i * costmap_->getSizeInCellsX()) + j;
 }
