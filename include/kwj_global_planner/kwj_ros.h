@@ -49,7 +49,6 @@ namespace kwj {
 
 
     private:
-      void worldToMap(double wx, double wy, double& mx, double& my);
       void clearRobotCell(const geometry_msgs::PoseStamped& global_pose, unsigned int mx, unsigned int my);
       double default_tolerance_;
       boost::mutex mutex_;

@@ -34,22 +34,22 @@ public:
   int width;
   int height;
  
-  Kwj(int w, int h);
+  Kwj(costmap_2d::Costmap2D* costmap);
   ~Kwj();
   /** Helper methods**/
+  bool worldToMap(double wx, double wy, float& mx, float& my) const;
   vector<int> runAStarOnGrid(int startGridSquare, int goalGridSquare);
   vector<int> findPath(int startGridSquare, int goalGridSquare, float g_score[]);
   vector<int> constructPath(int startGridSquare, int goalGridSquare, float g_score[]);
   void addNeighborGridSquareToOpenList(multiset<cell> &OPL, int neighborGridSquare, int goalGridSquare, float g_score[]);
   vector<int> findFreeNeighborGridSquare(int gridSquareIndex);
-  bool isStartAndGoalValid(int startGridSquare, int goalGridSquare, double tolerance);
+  bool isStartAndGoalValid(int startGridSquare, int goalGridSquare);
   float getMoveCost(int gridSquareIndex1, int gridSquareIndex2);
   float getMoveCost(int i1, int j1, int i2, int j2);
   float calculateHScore(int gridSquareIndex, int goalGridSquare);
 
   int calculateGridSquareIndex(float i, float j);
-  int calculateGridSquareIndex(unsigned int i, unsigned int j);
- 
+
   int getGridSquareRowIndex(int index);
   
   int getGridSquareColIndex(int index);
