@@ -7,14 +7,49 @@ float infinity = std::numeric_limits<float>::infinity();
 namespace kwj
 {
 
-  Kwj::Kwj(int w, int h)
+  Kwj::Kwj(costmap_2d::Costmap2D* costmap)
   {
   ROS_WARN("construct Kwj");
-  width = w;
-  height = h;
-  mapSize = w * h;
+
+  costmap_ = costmap;
+  width = costmap_->getSizeInCellsX();
+  height = costmap_->getSizeInCellsY();
+  mapSize = width * height;
+  resolution = costmap_->getResolution();
+
+  occupancyGridMap = new bool[mapSize];
+  for (unsigned int iy = 0; iy < height; iy++)
+    {
+      for (unsigned int ix = 0; ix < width; ix++)
+      {
+        unsigned int cost = static_cast<int>(costmap_->getCost(ix, iy));
+
+        if (cost == 0)
+          occupancyGridMap[iy * width + ix] = true;
+        else
+          occupancyGridMap[iy * width + ix] = false;
+      }
+    }
+
   ROS_WARN("construct Kwj2");
   }
+
+
+bool Kwj::worldToMap(double wx, double wy, float& mx, float& my) const
+{
+
+  mx = (wx - costmap_->getOriginX()) / resolution;
+  my = (wy - costmap_->getOriginY()) / resolution;
+
+  if ((wx-costmap_->getOriginX()) > width*resolution || (wy-costmap_->getOriginY()) > height*resolution)
+    {
+     ROS_WARN("map false");
+     return false;
+    }
+   else{
+     ROS_WARN("map true");
+    return true;}
+}
 
 
 vector<int> Kwj::runAStarOnGrid(int startGridSquare, int goalGridSquare)
@@ -146,74 +181,85 @@ void Kwj::addNeighborGridSquareToOpenList(multiset<cell> &openSquaresList, int n
 
 vector<int> Kwj::findFreeNeighborGridSquare(int gridSquare)
 {
-
+  ROS_WARN("find free neightbor");
   int rowIndex = getGridSquareRowIndex(gridSquare);
   int colIndex = getGridSquareColIndex(gridSquare);
   int neighborIndex;
   vector<int> freeNeighborGridSquares;
 
-  for (int i = -1; i <= 1; i++)
+  for (int i = -1; i <= 1; i++){
     for (int j = -1; j <= 1; j++)
     {
+      //ROS_WARN("check whether the index is valid");
       //check whether the index is valid
-      if ((rowIndex + i >= 0) && (rowIndex + i < costmap_->getSizeInCellsY()) && (colIndex + j >= 0) && (colIndex + j < width) && (!(i == 0 && j == 0)))
+      if ((rowIndex + i >= 0) && (rowIndex + i < height) && (colIndex + j >= 0) && (colIndex + j < width) && (!(i == 0 && j == 0)))
       {
         neighborIndex = ((rowIndex + i) * width) + (colIndex + j);
 
         if (isFree(neighborIndex))
-          freeNeighborGridSquares.push_back(neighborIndex);
+         { freeNeighborGridSquares.push_back(neighborIndex);}
       }
     }
+   }
   return freeNeighborGridSquares;
 }
 
 /**
   Checks if start and goal positions are valid and not unreachable.
 **/
-bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare, double tolerance)
+bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare)
 {
+  ROS_WARN("start calc isStartAndGoalValid");
   bool isvalid = true;
-  double goalGridSquareTolerance = goalGridSquare + tolerance;
   bool isFreeStartGridSquare = isFree(startGridSquare);
-  bool isFreeGoalGridSquare = isFree(goalGridSquareTolerance);
+
+  if(isFreeStartGridSquare == true){ROS_WARN("startGridSquare true");}
+  else{ROS_WARN("startGridSquare false");}
+
+  bool isFreeGoalGridSquare = isFree(goalGridSquare);
+
+  if(isFreeGoalGridSquare == true){ROS_WARN("goalGridSquare true");}
+  else{ROS_WARN("goalGridSquare false");}
+
+  ROS_WARN("free goalGridSquare isStartAndGoalValid");
   if (startGridSquare == goalGridSquare)
   {
-
+    ROS_WARN("check whether the index is valid");
     isvalid = false;
   }
   else
   {
     if (!isFreeStartGridSquare && !isFreeGoalGridSquare)
     {
-
+      ROS_WARN("false invalid1");
       isvalid = false;
     }
     else
     {
       if (!isFreeStartGridSquare)
       {
-
+        ROS_WARN("false invalid2");
         isvalid = false;
       }
       else
       {
         if (!isFreeGoalGridSquare)
         {
-
+          ROS_WARN("false invalid3");
           isvalid = false;
         }
         else
         {
           if (findFreeNeighborGridSquare(goalGridSquare).size() == 0)
           {
-
+            ROS_WARN("false invalid4");
             isvalid = false;
           }
           else
           {
             if (findFreeNeighborGridSquare(startGridSquare).size() == 0)
             {
-
+              ROS_WARN("false invalid5");
               isvalid = false;
             }
           }
@@ -221,6 +267,7 @@ bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare, double to
       }
     }
   }
+  ROS_WARN("different startGridSquare goalGridSquare");
   return isvalid;
 }
 
@@ -279,13 +326,9 @@ float Kwj::calculateHScore(int gridSquareIndex, int goalGridSquare)
 **/
 int Kwj::calculateGridSquareIndex(float i, float j) 
 {
-  return (i * costmap_->getSizeInCellsX()) + j;
+  return i * width + j;
 }
 
-int Kwj::calculateGridSquareIndex(unsigned int i, unsigned int j) 
-{
-  return (i * costmap_->getSizeInCellsX()) + j;
-}
 
 /**
 
@@ -294,7 +337,7 @@ int Kwj::calculateGridSquareIndex(unsigned int i, unsigned int j)
 **/
 int Kwj::getGridSquareRowIndex(int index) //get the row index from gridSquare index
 {
-  return index / costmap_->getSizeInCellsX();
+  return index / width;
 }
 
 /**
@@ -304,7 +347,7 @@ int Kwj::getGridSquareRowIndex(int index) //get the row index from gridSquare in
 **/
 int Kwj::getGridSquareColIndex(int index) //get column index from gridSquare index
 {
-  return index % costmap_->getSizeInCellsX();
+  return index % width;
 }
 
 void Kwj::getGridSquareCoordinates(int index, float &x, float &y)
@@ -336,7 +379,8 @@ bool Kwj::isFree(int gridSquareIndex)
 {
   return occupancyGridMap[gridSquareIndex];
 }
- 
+
+
  Kwj::~Kwj(){
   ROS_WARN("delete Kwj");
     if(occupancyGridMap)

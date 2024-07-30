@@ -34,7 +34,7 @@ namespace kwj {
 
     width = costmap_->getSizeInCellsX();
     height = costmap_->getSizeInCellsY();
-    planner_ = boost::shared_ptr<Kwj>(new Kwj(costmap_->getSizeInCellsX(), costmap_->getSizeInCellsY()));
+    planner_ = boost::shared_ptr<Kwj>(new Kwj(costmap_));
     resolution = costmap_->getResolution();
     mapSize = width * height;
     value = 0;
@@ -60,11 +60,6 @@ namespace kwj {
     ROS_WARN("This planner has already been initialized... doing nothing");
   }
   
-  void KwjROS::worldToMap(double wx, double wy, double& mx, double& my) {
-    mx = (int)((wx - costmap_->getSizeInCellsX()) / costmap_->getResolution());
-    my = (int)((wy - costmap_->getSizeInCellsY()) / costmap_->getResolution());
-  }
-
   bool KwjROS::makePlan(const geometry_msgs::PoseStamped& start, 
       const geometry_msgs::PoseStamped& goal, std::vector<geometry_msgs::PoseStamped>& plan){
         ROS_WARN("kwj_ros.cpp makePlan start");
@@ -91,78 +86,83 @@ namespace kwj {
     return false;
   }
   ROS_WARN("makePlan execute now");
-double wx = start.pose.position.x;
-double wy = start.pose.position.y;
+  double wx = start.pose.position.x;
+  double wy = start.pose.position.y;
 
-unsigned int mx, my;
-if (!costmap_->worldToMap(wx, wy, mx, my)) {
-    ROS_WARN_THROTTLE(1.0, "The robot's start position is off the global costmap. Planning will always fail, are you sure the robot has been properly localized?");
-    return false;
-}
+  float mx, my;
+  if (!planner_->worldToMap(wx, wy, mx, my)) { //I made in costmap_2d.cpp worldToMap function -> bool Costmap2D::worldToMap(double wx, double wy, float& mx, float& my) const{}
+      ROS_WARN_THROTTLE(1.0, "The robot's start position is off the global costmap. Planning will always fail, are you sure the robot has been properly localized?");
+      return false;
+  }
+   ROS_WARN("first worldToMap");
+  // clear the starting cell within the costmap because we know it can't be an obstacle
+  clearRobotCell(start, mx, my);
+  ROS_WARN("start map_start[] code");
+  ROS_WARN("map_start[] exist");
+  ROS_WARN("start calc start_index");
 
-// clear the starting cell within the costmap because we know it can't be an obstacle
-clearRobotCell(start, mx, my);
+  int start_index = planner_->calculateGridSquareIndex(my, mx);
 
-int map_start[2];
-map_start[0] = mx;
-map_start[1] = my;
+  ROS_WARN("calc start_index");
 
-int start_index = planner_->calculateGridSquareIndex(mx, my);
+  
+  double wwx = goal.pose.position.x;
+  double wwy = goal.pose.position.y;
+  float mmx,mmy;
 
-wx = goal.pose.position.x;
-wy = goal.pose.position.y;
-
-if (!costmap_->worldToMap(wx, wy, mx, my)) {
-    if (tolerance <= 0.0) {
+  if (!planner_->worldToMap(wwx, wwy, mmx, mmy)) {
+      if (tolerance <= 0.0) {
         ROS_WARN_THROTTLE(1.0, "The goal sent to the kwj planner is off the global costmap. Planning will always fail to this goal.");
         return false;
-    }
-    mx = 0;
-    my = 0;
-}
+      }
+  }
+   ROS_WARN("second worldToMap");
 
-int map_goal[2];
-map_goal[0] = mx;
-map_goal[1] = my;
+  ROS_WARN("start goal_index calc");
+  int goal_index = planner_->calculateGridSquareIndex(mmy, mmx); 
+  ROS_WARN("finish");
 
-int goal_index = planner_->calculateGridSquareIndex(mx, my); 
-
-
-  if (!planner_->isStartAndGoalValid(start_index, goal_index, tolerance)) {
-    ROS_WARN("Invalid start or goal");
-   }
-
-  std::vector<int> bestPath = planner_->runAStarOnGrid(start_index, goal_index);
-
-  int len = bestPath.size();
-  if (len > 0) {
-    for (int i = 0; i < len; ++i) {
-      float x = 0;
-      float y = 0;
-      float previous_x = 0;
-      float previous_y = 0;
-
-      planner_->getGridSquareCoordinates(bestPath[i], x, y);
-      int previous_index;
+  ROS_WARN("start isStartAndGoalValid");
+  if (planner_->isStartAndGoalValid(start_index, goal_index)) 
+     {
+  ROS_WARN("isStartAndGoalValid true");
+     std::vector<int> bestPath = planner_->runAStarOnGrid(start_index, goal_index);
+  ROS_WARN("start find bestpath");
+     int len = bestPath.size();
+    if (len > 0) {
+      for (int i = 0; i < len; ++i) {
+       float x = 0;
+       float y = 0;
+       float previous_x = 0;
+       float previous_y = 0;
+       ROS_WARN("start getGridSquareCoordinates");
+       planner_->getGridSquareCoordinates(bestPath[i], x, y);
+       int previous_index;
       
-      if(i != 0){  
+       if(i != 0){  
          previous_index = bestPath[i-1];
          previous_x = x;
          previous_y = y;   
-      }
-      else{ 
-      previous_index = bestPath[i];
-      }
-
+       }
+       else{ 
+       previous_index = bestPath[i];
+       }
+      ROS_WARN("start getGridSquareCoordinates2");
       planner_->getGridSquareCoordinates(previous_index, previous_x, previous_y);
     }
-    return len;
+
   } else {
     ROS_WARN("No path found");
     return 0;
   }
   ROS_WARN("makePlan end");
   publishPlan(plan);
+   }
+  else{ 
+    ROS_WARN("Invalid start or goal");
+    
+   }
+  ROS_WARN("find best path");
   }
   
   void KwjROS::publishPlan(const std::vector<geometry_msgs::PoseStamped>& path){
@@ -195,20 +195,13 @@ int goal_index = planner_->calculateGridSquareIndex(mx, my);
 
     //set the associated costs in the cost map to be free
     costmap_->setCost(mx, my, costmap_2d::FREE_SPACE);
+    ROS_WARN("clear_robot_cell");
   }
 
   KwjROS::~KwjROS(){
     ROS_WARN("delete KwjROS");
     if(occupancyGridMap){
      delete[] occupancyGridMap;}
-     occupancyGridMap = nullptr;
+     occupancyGridMap = nullptr;}
  
-    if(costmap_){
-     delete[] costmap_;}
-     costmap_ = nullptr;
-    
-    if(costmap_ros_){
-     delete[] costmap_ros_;}
-     costmap_ros_ = nullptr;
-  }
 };
