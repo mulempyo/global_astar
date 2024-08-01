@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <ros/ros.h>
+#include <ros/console.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <tf/tf.h>
 #include <set>
