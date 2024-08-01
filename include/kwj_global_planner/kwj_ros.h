@@ -2,6 +2,7 @@
 #define KWJ_KWJ_ROS_H_
 
 #include <ros/ros.h>
+#include <ros/console.h>
 #include <kwj_global_planner/kwj_global.h>
 #include <costmap_2d/costmap_2d.h>
 #include <geometry_msgs/PoseStamped.h>
