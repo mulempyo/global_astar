@@ -44,6 +44,7 @@ void Kwj::initialize(std::string name, costmap_2d::Costmap2DROS *costmap_ros)
 
     ros::NodeHandle private_nh("~/" + name);
     plan_pub_ = private_nh.advertise<nav_msgs::Path>("plan",1);
+    cloud_pub_ = private_nh.advertise<sensor_msgs::PointCloud2>("point_cloud", 1);
     private_nh.param("default_tolerance", default_tolerance_, 0.0);
 
     originX = costmap_->getOriginX();
@@ -140,7 +141,8 @@ bool Kwj::makePlan(const geometry_msgs::PoseStamped &start,
 
   //Convert to map coordinates relative to costmap origin
 
-
+ 
+  
   // call global planner
 
   if (isStartAndGoalValid(start_index, goal_index))
@@ -150,6 +152,22 @@ bool Kwj::makePlan(const geometry_msgs::PoseStamped &start,
     bestPath.clear();
 
     bestPath = runAStarOnGrid(start_index, goal_index);
+   
+    sensor_msgs::PointCloud2 cloud;
+    cloud.header.frame_id = costmap_ros_->getGlobalFrameID();
+    cloud.header.stamp = ros::Time::now();
+
+    sensor_msgs::PointCloud2Modifier cloud_mod(cloud);
+    cloud_mod.setPointCloud2Fields(4, "x", 1, sensor_msgs::PointField::FLOAT32,
+                                      "y", 1, sensor_msgs::PointField::FLOAT32,
+                                      "z", 1, sensor_msgs::PointField::FLOAT32,
+                                      "intensity", 1, sensor_msgs::PointField::FLOAT32);
+    cloud_mod.resize(bestPath.size());
+
+    sensor_msgs::PointCloud2Iterator<float> iter_x(cloud, "x");
+    sensor_msgs::PointCloud2Iterator<float> iter_y(cloud, "y");
+    sensor_msgs::PointCloud2Iterator<float> iter_z(cloud, "z");
+    sensor_msgs::PointCloud2Iterator<float> iter_intensity(cloud, "intensity"); 
 
     //if the global planner finds a path
     if (bestPath.size() > 0)
@@ -163,49 +181,52 @@ bool Kwj::makePlan(const geometry_msgs::PoseStamped &start,
         float x = 0.0;
         float y = 0.0;
 
-        float previous_x = 0.0;
-        float previous_y = 0.0;
-
         int index = bestPath[i];
-        int previous_index;
+
         mapToWorld(index, x, y);
-
-        if (i != 0)
-        {
-          previous_index = bestPath[i - 1];
-        }
-        else
-        {
-          previous_index = index;
-        }
-
-        mapToWorld(previous_index, previous_x, previous_y);
-
-        //Orient the bot towards target
-        tf::Vector3 vectorToTarget;
-        vectorToTarget.setValue(x - previous_x, y - previous_y, 0.0);
-        float angle = atan2((double)vectorToTarget.y(), (double)vectorToTarget.x());
 
         geometry_msgs::PoseStamped pose = goal;
 
         pose.pose.position.x = x;
         pose.pose.position.y = y;
         pose.pose.position.z = 0.0;
-
-        pose.pose.orientation = tf::createQuaternionMsgFromYaw(angle);
+        pose.pose.orientation.x = 0.0;
+        pose.pose.orientation.y = 0.0;
+        pose.pose.orientation.z = 0.0;
+        pose.pose.orientation.w = 1.0;
 
         plan.push_back(pose);
+        
+        *iter_x = x;
+        *iter_y = y;
+        *iter_z = 0.0;
+        *iter_intensity = 1.0;  // Set the intensity to a constant value
+        ++iter_x;
+        ++iter_y;
+        ++iter_z;
+        ++iter_intensity; 
       }
       publishPlan(plan);
+      cloud_pub_.publish(cloud);
       return true;
+     /* if (isGoalReached(plan.back(), goal, tolerance))
+      {
+        publishPlan(plan);
+        cloud_pub_.publish(cloud);
+        return true;
+      }
+      else
+      {
+        ROS_WARN("Goal is not reached within tolerance.");
+        return false;
+      } */
     }
-
     else
     {
       ROS_WARN("The planner failed to find a path, choose other goal position");
       return false;
     }
-  }
+  } // isStartAndGoalValid
 
   else
   {
@@ -214,6 +235,16 @@ bool Kwj::makePlan(const geometry_msgs::PoseStamped &start,
   }
 }
 
+
+
+/*bool Kwj::isGoalReached(const geometry_msgs::PoseStamped &current_pose, const geometry_msgs::PoseStamped &goal_pose, double tolerance)
+{
+  double dx = current_pose.pose.position.x - goal_pose.pose.position.x;
+  double dy = current_pose.pose.position.y - goal_pose.pose.position.y;
+  double distance = sqrt(dx * dx + dy * dy);
+
+  return distance <= tolerance;
+}*/
 
 /**
   Function to get gridSquare coordinates given index
@@ -384,42 +415,42 @@ bool Kwj::isStartAndGoalValid(int startGridSquare, int goalGridSquare)
   bool isFreeGoalGridSquare = isFree(goalGridSquare);
   if (startGridSquare == goalGridSquare)
   {
-
+    ROS_WARN("false 1");
     isvalid = false;
   }
   else
   {
     if (!isFreeStartGridSquare && !isFreeGoalGridSquare)
     {
-
+      ROS_WARN("false 2");
       isvalid = false;
     }
     else
     {
       if (!isFreeStartGridSquare)
       {
-
+        ROS_WARN("false 3");
         isvalid = false;
       }
       else
       {
         if (!isFreeGoalGridSquare)
         {
-
+          ROS_WARN("false 4");
           isvalid = false;
         }
         else
         {
           if (findFreeNeighborGridSquare(goalGridSquare).size() == 0)
           {
-
+            ROS_WARN("false 5");
             isvalid = false;
           }
           else
           {
             if (findFreeNeighborGridSquare(startGridSquare).size() == 0)
             {
-
+              ROS_WARN("false 6");
               isvalid = false;
             }
           }
@@ -480,7 +511,7 @@ float Kwj::calculateHScore(int gridSquareIndex, int goalGridSquare)
   int y1 = getGridSquareColIndex(goalGridSquare);
   int x2 = getGridSquareRowIndex(gridSquareIndex);
   int y2 = getGridSquareColIndex(gridSquareIndex);
-  return abs(x1 - x2) + abs(y1 - y2);
+  return abs(x1 - x2) + abs(y1 - y2);  
 }
 
 /**
@@ -520,7 +551,7 @@ bool Kwj::isFree(int i, int j)
 {
   int gridSquareIndex = (i * width) + j;
 
-  return occupancyGridMap[gridSquareIndex];
+  return isFree(gridSquareIndex);
 }
 
 /**
@@ -530,7 +561,10 @@ bool Kwj::isFree(int i, int j)
 **/
 bool Kwj::isFree(int gridSquareIndex)
 {
-  return occupancyGridMap[gridSquareIndex];
+  unsigned int mx = gridSquareIndex % width;
+  unsigned int my = gridSquareIndex / width;
+  unsigned char cost = costmap_->getCost(mx, my);
+  return cost == costmap_2d::FREE_SPACE;
 }
 
  void Kwj::publishPlan(const std::vector<geometry_msgs::PoseStamped>& path){
