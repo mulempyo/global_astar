@@ -4,8 +4,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf/tf.h>
 #include <set>
-
-/** for global path planner interface */
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <costmap_2d/costmap_2d.h>
 #include <nav_core/base_global_planner.h>
@@ -49,6 +49,7 @@ public:
   int mapSize;
   float infinity;
   ros::Publisher plan_pub_;
+  ros::Publisher cloud_pub_;
 
   Kwj();
   Kwj(ros::NodeHandle &);
@@ -83,6 +84,7 @@ public:
   bool isFree(int gridSquareIndex); 
   bool isFree(int i, int j);
 
+ // bool isGoalReached(const geometry_msgs::PoseStamped &current_pose, const geometry_msgs::PoseStamped &goal_pose, double tolerance);
   bool worldToMap(float wx, float wy, float& mx, float& my) const;
   void mapToWorld(int index, float &x, float &y);
   void publishPlan(const std::vector<geometry_msgs::PoseStamped>& path);
